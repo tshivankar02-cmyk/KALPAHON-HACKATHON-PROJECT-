@@ -18,3 +18,7 @@ a. HTML, CSS, and Vanilla JavaScript for the front end.
 b. Flask for the back end. 
 c. SQLite for the database. 
 • Along with the benefits the platform provides to brands and influencers, it indirectly helps the economy through improving the ease of business, encouraging influencers to seek new opportunities for earning, and increasing currency flow from party to party.
+
+Presentation: https://www.dropbox.com/scl/fi/mnwx86rxrqkkcfdriz671/Kalpathon-2.0-Pitch.pptx?rlkey=jwe2g7omi1jxm4eycxi4hwjd8&st=tyr2m2z6&dl=0
+
+LIVE WEBSITE URL: https://clout-con-backend--tiwarishivankar.replit.app
