@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Clout Consortium</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <div class="container page-section">
+    <div class="section-header">
+      <div>
+        <h1 class="page-title" id="dash-title">Dashboard</h1>
+        <p class="page-subtitle" id="dash-sub">Loading...</p>
+      </div>
+      <div id="dash-action"></div>
+    </div>
+    <div id="dash-content">
+      <div class="card"><div class="skeleton" style="height:160px"></div></div>
+      <div class="card" style="margin-top:16px"><div class="skeleton" style="height:160px"></div></div>
+    </div>
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+
+    document.getElementById("navbar").innerHTML = buildNavbar("dashboard");
+
+    const user = getUser();
+    document.getElementById("dash-title").textContent = "Dashboard";
+    document.getElementById("dash-sub").textContent = `Welcome back, ${user.name}`;
+
+    async function renderBrandDashboard() {
+      document.getElementById("dash-action").innerHTML =
+        `<a href="/pages/campaign-new.html" class="btn">Post Campaign</a>`;
+
+      let [campaigns, applications] = await Promise.all([api.campaigns(), api.myApplications()]);
+      const myCampaigns = campaigns.filter(c => c.brand_id === user.id);
+
+      if (myCampaigns.length === 0) {
+        document.getElementById("dash-content").innerHTML = `
+          <div class="empty card">
+            <div class="empty-icon">◈</div>
+            <div class="empty-title">No campaigns yet</div>
+            <div class="empty-sub">Create your first campaign to start finding influencers.</div>
+            <br><a href="/pages/campaign-new.html" class="btn">Post your first campaign</a>
+          </div>`;
+        return;
+      }
+
+      const html = myCampaigns.map(c => {
+        const apps = applications.filter(a => a.campaign_id === c.id);
+        const appsHtml = apps.length === 0 ? `<p style="font-size:13px;color:var(--text-muted);margin-top:12px">No applicants yet.</p>` :
+          apps.map(a => `
+            <div class="applicant-row">
+              <div class="applicant-info">
+                <div class="applicant-name">${escapeHtml(a.influencer_name)} ${statusBadge(a.status)}</div>
+                ${a.influencer_bio ? `<div class="applicant-bio">${escapeHtml(a.influencer_bio)}</div>` : ""}
+                <div class="applicant-pitch">${escapeHtml(a.pitch_text)}</div>
+              </div>
+              ${a.status === "PENDING" ? `
+                <div class="applicant-actions">
+                  <button class="btn btn-success btn-sm" onclick="updateStatus(${a.id},'ACCEPTED',this)">Accept</button>
+                  <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="updateStatus(${a.id},'REJECTED',this)">Reject</button>
+                </div>` : ""}
+            </div>`).join("");
+
+        return `
+          <div class="campaign-item" id="camp-${c.id}">
+            <div class="campaign-item-header">
+              <div>
+                <div class="campaign-item-title">${escapeHtml(c.title)}</div>
+                <div class="campaign-item-meta">Budget: <strong>${formatCurrency(c.budget)}</strong> &bull; ${c.application_count} applicant${c.application_count !== 1 ? "s" : ""}</div>
+              </div>
+              <div class="campaign-item-actions">
+                <a href="/pages/campaign.html?id=${c.id}" class="btn btn-outline btn-sm">View</a>
+                <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="deleteCampaign(${c.id},this)">Delete</button>
+              </div>
+            </div>
+            ${appsHtml}
+          </div>`;
+      }).join("");
+
+      document.getElementById("dash-content").innerHTML = `<div class="dashboard-grid">${html}</div>`;
+    }
+
+    async function renderInfluencerDashboard() {
+      const applications = await api.myApplications();
+      if (applications.length === 0) {
+        document.getElementById("dash-content").innerHTML = `
+          <div class="empty card">
+            <div class="empty-icon">◈</div>
+            <div class="empty-title">No applications yet</div>
+            <div class="empty-sub">Browse campaigns and start applying.</div>
+            <br><a href="/index.html" class="btn">Browse campaigns</a>
+          </div>`;
+        return;
+      }
+      const html = applications.map(a => `
+        <div class="application-item">
+          <div>
+            <div style="font-weight:700"><a href="/pages/campaign.html?id=${a.campaign_id}">${escapeHtml(a.campaign_title)}</a></div>
+            <div style="font-size:13px;color:var(--text-muted)">Budget: ${formatCurrency(a.campaign_budget)}</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:6px">${escapeHtml(a.pitch_text)}</div>
+          </div>
+          <div style="flex-shrink:0">${statusBadge(a.status)}</div>
+        </div>`).join("");
+      document.getElementById("dash-content").innerHTML = `<div class="dashboard-grid">${html}</div>`;
+    }
+
+    async function updateStatus(appId, status, btn) {
+      btn.disabled = true;
+      try {
+        await api.updateStatus(appId, status);
+        // Re-render
+        if (user.role === "BRAND") renderBrandDashboard();
+      } catch(e) { btn.disabled = false; alert(e.message); }
+    }
+
+    async function deleteCampaign(id, btn) {
+      if (!confirm("Delete this campaign? This cannot be undone.")) return;
+      btn.disabled = true;
+      try {
+        await api.deleteCampaign(id);
+        document.getElementById("camp-" + id).remove();
+      } catch(e) { btn.disabled = false; alert(e.message); }
+    }
+
+    (async () => {
+      try {
+        if (user.role === "BRAND") await renderBrandDashboard();
+        else await renderInfluencerDashboard();
+      } catch(e) {
+        document.getElementById("dash-content").innerHTML =
+          `<div class="alert alert-error">Failed to load dashboard: ${e.message}</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clout Consortium — Where Brands Meet Their Perfect Voice</title>
+  <meta name="description" content="A marketplace connecting ambitious brands with authentic influencers." />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <div class="hero">
+    <h1 class="hero-title">Where brands meet their<br><span>perfect voice</span></h1>
+    <p class="hero-sub">Clout Consortium connects ambitious brands with authentic influencers. Browse campaigns, pitch your story, build partnerships that matter.</p>
+    <div class="hero-actions" id="hero-actions">
+      <a href="/pages/register.html" class="btn">Start for free</a>
+      <a href="/pages/login.html" class="btn btn-outline">Sign in</a>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stats-inner" id="stats-bar">
+      <div class="stat-item"><div class="stat-value skeleton sk-h3" style="margin:0 auto;width:48px"></div><div class="stat-label">Loading...</div></div>
+    </div>
+  </div>
+
+  <div class="container page-section">
+    <div class="section-header">
+      <div>
+        <h2 class="page-title" style="font-size:22px">Open Campaigns</h2>
+        <p class="page-subtitle" id="campaign-count">Loading campaigns...</p>
+      </div>
+      <div id="post-btn"></div>
+    </div>
+    <div class="campaigns-grid" id="campaigns-grid">
+      <div class="card"><div class="skeleton sk-card"></div></div>
+      <div class="card"><div class="skeleton sk-card"></div></div>
+      <div class="card"><div class="skeleton sk-card"></div></div>
+    </div>
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById("navbar").innerHTML = buildNavbar("home");
+
+    const user = getUser();
+    if (user) {
+      document.getElementById("hero-actions").innerHTML =
+        `<a href="/pages/dashboard.html" class="btn">Go to Dashboard</a>
+         <a href="/index.html" class="btn btn-outline">Browse Campaigns</a>`;
+    }
+    if (user && user.role === "BRAND") {
+      document.getElementById("post-btn").innerHTML =
+        `<a href="/pages/campaign-new.html" class="btn">Post Campaign</a>`;
+    }
+
+    async function loadStats() {
+      try {
+        const s = await api.campaignStats();
+        document.getElementById("stats-bar").innerHTML = `
+          <div class="stat-item"><div class="stat-value">${s.total_campaigns}</div><div class="stat-label">Active Campaigns</div></div>
+          <div class="stat-item"><div class="stat-value">${s.total_applications}</div><div class="stat-label">Total Applications</div></div>
+          <div class="stat-item"><div class="stat-value">${formatCurrency(s.total_budget)}</div><div class="stat-label">Total Budget</div></div>
+          <div class="stat-item"><div class="stat-value">${s.total_brands}</div><div class="stat-label">Brands</div></div>
+          <div class="stat-item"><div class="stat-value">${s.total_influencers}</div><div class="stat-label">Influencers</div></div>`;
+      } catch(e) { document.getElementById("stats-bar").innerHTML = ""; }
+    }
+
+    async function loadCampaigns() {
+      try {
+        const list = await api.campaigns();
+        document.getElementById("campaign-count").textContent = `${list.length} campaigns available`;
+        if (list.length === 0) {
+          document.getElementById("campaigns-grid").innerHTML =
+            `<div class="empty" style="grid-column:1/-1"><div class="empty-icon">◈</div><div class="empty-title">No campaigns yet</div><div class="empty-sub">Be the first to post a campaign</div></div>`;
+        } else {
+          document.getElementById("campaigns-grid").innerHTML = list.map(campaignCard).join("");
+        }
+      } catch(e) {
+        document.getElementById("campaigns-grid").innerHTML =
+          `<div class="empty" style="grid-column:1/-1"><div class="empty-title">Failed to load campaigns</div></div>`;
+      }
+    }
+
+    loadStats();
+    loadCampaigns();
+  </script>
+</body>
+</html>

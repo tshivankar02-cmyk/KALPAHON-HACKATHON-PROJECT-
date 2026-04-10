@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campaign — Clout Consortium</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <div class="container page-section" id="main">
+    <div class="card"><div class="skeleton" style="height:300px"></div></div>
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    document.getElementById("navbar").innerHTML = buildNavbar();
+
+    const params = new URLSearchParams(window.location.search);
+    const id = parseInt(params.get("id") || "0");
+    const user = getUser();
+
+    if (!id) { window.location.href = "/index.html"; }
+
+    async function loadCampaign() {
+      let campaign;
+      try { campaign = await api.campaign(id); }
+      catch(e) {
+        document.getElementById("main").innerHTML =
+          `<div class="empty card"><div class="empty-title">Campaign not found</div><br><a href="/index.html" class="btn btn-outline">Back</a></div>`;
+        return;
+      }
+
+      // Check if influencer already applied
+      let myApp = null;
+      if (user) {
+        try {
+          const apps = await api.myApplications();
+          myApp = apps.find(a => a.campaign_id === id) || null;
+        } catch(e) {}
+      }
+
+      const isOwner = user && user.id === campaign.brand_id;
+
+      // Build applicants section (owner only)
+      let applicantsHtml = "";
+      if (isOwner) {
+        const apps = campaign.applications || [];
+        applicantsHtml = `
+          <h2 style="font-size:18px;font-weight:800;margin-bottom:14px">Applications (${apps.length})</h2>
+          ${apps.length === 0
+            ? `<div class="empty card"><div class="empty-icon">◈</div><div class="empty-title">No applications yet</div></div>`
+            : apps.map(a => `
+              <div class="applicant-row card" style="margin-bottom:12px">
+                <div class="applicant-info">
+                  <div class="applicant-name">${escapeHtml(a.influencer_name)} ${statusBadge(a.status)}</div>
+                  ${a.influencer_bio ? `<div class="applicant-bio">${escapeHtml(a.influencer_bio)}</div>` : ""}
+                  <div class="applicant-pitch">${escapeHtml(a.pitch_text)}</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:6px">${formatDate(a.created_at)}</div>
+                </div>
+                ${a.status === "PENDING" ? `
+                  <div class="applicant-actions">
+                    <button class="btn btn-success btn-sm" onclick="doStatus(${a.id},'ACCEPTED',this)">Accept</button>
+                    <button class="btn btn-outline btn-sm" style="color:var(--danger);border-color:var(--danger)" onclick="doStatus(${a.id},'REJECTED',this)">Reject</button>
+                  </div>` : ""}
+              </div>`).join("")
+          }`;
+      }
+
+      // Build apply section (influencer, not owner)
+      let applyHtml = "";
+      if (user && user.role === "INFLUENCER" && !isOwner) {
+        if (myApp) {
+          applyHtml = `
+            <div class="apply-box">
+              <div class="apply-box-title">Your Application</div>
+              <div style="margin-bottom:10px">${statusBadge(myApp.status)}</div>
+              <div style="font-size:13px;color:var(--text-muted)"><strong>Your pitch:</strong> ${escapeHtml(myApp.pitch_text)}</div>
+            </div>`;
+        } else {
+          applyHtml = `
+            <div class="apply-box">
+              <div class="apply-box-title">Apply to this campaign</div>
+              <div id="apply-error" class="alert alert-error hidden" style="margin-bottom:12px"></div>
+              <div id="apply-success" class="alert alert-success hidden" style="margin-bottom:12px"></div>
+              <form id="apply-form">
+                <div class="form-group" style="margin-bottom:12px">
+                  <label for="pitch">Your pitch</label>
+                  <textarea id="pitch" placeholder="Tell the brand why you're the perfect fit for this campaign..." style="min-height:120px"></textarea>
+                </div>
+                <button type="submit" class="btn" id="apply-btn">Submit application</button>
+              </form>
+            </div>`;
+        }
+      } else if (!user) {
+        applyHtml = `
+          <div class="apply-box">
+            <div class="apply-box-title">Interested in this campaign?</div>
+            <p style="font-size:14px;color:var(--text-muted);margin-bottom:14px">Sign in or create an influencer account to apply.</p>
+            <a href="/pages/login.html" class="btn">Sign in to apply</a>
+          </div>`;
+      }
+
+      document.getElementById("main").innerHTML = `
+        <p style="margin-bottom:20px"><a href="/index.html" style="color:var(--text-muted);font-size:14px">&larr; All campaigns</a></p>
+
+        <div class="campaign-detail-header">
+          <h1 class="campaign-detail-title">${escapeHtml(campaign.title)}</h1>
+          <div class="campaign-detail-meta">
+            <span>by <strong>${escapeHtml(campaign.brand_name)}</strong></span>
+            <span class="budget-badge">${formatCurrency(campaign.budget)}</span>
+            <span style="font-size:13px;color:var(--text-muted)">${(campaign.applications||[]).length} applicants</span>
+          </div>
+          <p class="campaign-detail-desc">${escapeHtml(campaign.description)}</p>
+          ${campaign.brand_bio ? `<div class="brand-bio-box"><div class="brand-bio-label">About the brand</div><p style="font-size:14px;color:var(--text-muted)">${escapeHtml(campaign.brand_bio)}</p></div>` : ""}
+        </div>
+
+        ${applyHtml}
+        ${applicantsHtml}`;
+
+      // Apply form listener
+      const applyForm = document.getElementById("apply-form");
+      if (applyForm) {
+        applyForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const errEl = document.getElementById("apply-error");
+          const sucEl = document.getElementById("apply-success");
+          const btn = document.getElementById("apply-btn");
+          const pitch = document.getElementById("pitch").value.trim();
+          hideError(errEl); hideError(sucEl);
+          if (!pitch) { showError(errEl, "Please write a pitch"); return; }
+          setLoading(btn, true, "Submit application");
+          try {
+            await api.apply({ campaign_id: id, pitch_text: pitch });
+            showSuccess(sucEl, "Application submitted! The brand will review your pitch.");
+            applyForm.style.display = "none";
+          } catch(err) {
+            showError(errEl, err.message || "Failed to apply");
+            setLoading(btn, false, "Submit application");
+          }
+        });
+      }
+    }
+
+    async function doStatus(appId, status, btn) {
+      btn.disabled = true;
+      try {
+        await api.updateStatus(appId, status);
+        loadCampaign(); // re-render
+      } catch(e) { btn.disabled = false; alert(e.message); }
+    }
+
+    loadCampaign();
+  </script>
+</body>
+</html>

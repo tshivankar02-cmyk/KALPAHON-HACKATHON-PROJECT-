@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Account — Clout Consortium</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card" style="max-width:480px">
+      <div class="auth-logo">
+        <a href="/index.html" style="text-decoration:none;color:inherit">
+          <div class="auth-logo-icon">CC</div>
+          <div class="auth-logo-name">Clout Consortium</div>
+        </a>
+      </div>
+
+      <div class="card">
+        <h1 class="auth-title">Create account</h1>
+        <p class="auth-sub">Join the marketplace</p>
+
+        <div id="error-msg" class="alert alert-error hidden"></div>
+        <div id="success-msg" class="alert alert-success hidden"></div>
+
+        <form class="auth-form" id="register-form" novalidate>
+          <!-- Role selector -->
+          <div class="form-group">
+            <label>I am a...</label>
+            <div class="role-selector">
+              <div class="role-option selected" data-role="INFLUENCER" id="opt-influencer">
+                <div class="role-option-title">Influencer</div>
+                <div class="role-option-sub">Apply to campaigns</div>
+              </div>
+              <div class="role-option" data-role="BRAND" id="opt-brand">
+                <div class="role-option-title">Brand</div>
+                <div class="role-option-sub">Post campaigns</div>
+              </div>
+            </div>
+            <input type="hidden" id="role" value="INFLUENCER" />
+          </div>
+
+          <div class="form-group">
+            <label for="name">Full name</label>
+            <input type="text" id="name" placeholder="Your name" required autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="password">Password <span class="label-muted">(min 6 chars)</span></label>
+            <input type="password" id="password" placeholder="••••••••" required autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label for="bio">Bio <span class="label-muted">(optional)</span></label>
+            <textarea id="bio" placeholder="Tell brands or influencers about yourself..." style="min-height:80px"></textarea>
+          </div>
+          <button type="submit" class="btn btn-full" id="submit-btn">Create account</button>
+        </form>
+
+        <p class="auth-footer">
+          Already have an account?
+          <a href="/pages/login.html">Sign in</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    if (getToken()) window.location.href = "/pages/dashboard.html";
+
+    // Role selector logic
+    let selectedRole = "INFLUENCER";
+    document.querySelectorAll(".role-option").forEach(el => {
+      el.addEventListener("click", () => {
+        document.querySelectorAll(".role-option").forEach(o => o.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedRole = el.dataset.role;
+        document.getElementById("role").value = selectedRole;
+      });
+    });
+
+    const form = document.getElementById("register-form");
+    const errEl = document.getElementById("error-msg");
+    const sucEl = document.getElementById("success-msg");
+    const btn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError(errEl);
+      hideError(sucEl);
+
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const bio = document.getElementById("bio").value.trim();
+      const role = selectedRole;
+
+      if (!name || !email || !password) { showError(errEl, "Please fill in all required fields"); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showError(errEl, "Please enter a valid email address"); return; }
+      if (password.length < 6) { showError(errEl, "Password must be at least 6 characters"); return; }
+
+      setLoading(btn, true, "Create account");
+      try {
+        await api.register({ name, email, password, role, bio: bio || undefined });
+        showSuccess(sucEl, "Account created! Redirecting to sign in...");
+        setTimeout(() => window.location.href = "/pages/login.html", 1200);
+      } catch(err) {
+        showError(errEl, err.message || "Registration failed");
+        setLoading(btn, false, "Create account");
+      }
+    });
+  </script>
+</body>
+</html>

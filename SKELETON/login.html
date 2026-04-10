@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Clout Consortium</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <a href="/index.html" style="text-decoration:none;color:inherit">
+          <div class="auth-logo-icon">CC</div>
+          <div class="auth-logo-name">Clout Consortium</div>
+        </a>
+      </div>
+
+      <div class="card">
+        <h1 class="auth-title">Welcome back</h1>
+        <p class="auth-sub">Sign in to your account</p>
+
+        <div id="error-msg" class="alert alert-error hidden"></div>
+
+        <form class="auth-form" id="login-form" novalidate>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password" />
+          </div>
+          <button type="submit" class="btn btn-full" id="submit-btn">Sign in</button>
+        </form>
+
+        <p class="auth-footer">
+          Don't have an account?
+          <a href="/pages/register.html">Join now</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    // Redirect if already logged in
+    if (getToken()) window.location.href = "/pages/dashboard.html";
+
+    const form = document.getElementById("login-form");
+    const errEl = document.getElementById("error-msg");
+    const btn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError(errEl);
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      if (!email || !password) { showError(errEl, "Please fill in all fields"); return; }
+      setLoading(btn, true, "Sign in");
+      try {
+        const res = await api.login({ email, password });
+        setSession(res.token, res.user);
+        window.location.href = "/pages/dashboard.html";
+      } catch(err) {
+        showError(errEl, err.message || "Invalid credentials");
+        setLoading(btn, false, "Sign in");
+      }
+    });
+  </script>
+</body>
+</html>

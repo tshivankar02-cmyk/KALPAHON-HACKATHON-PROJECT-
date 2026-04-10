@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Campaign — Clout Consortium</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="navbar"></div>
+
+  <div class="container page-section" style="max-width:680px">
+    <div style="margin-bottom:28px">
+      <h1 class="page-title">Create Campaign</h1>
+      <p class="page-subtitle">Post a new campaign to find influencers</p>
+    </div>
+
+    <div class="card">
+      <div id="error-msg" class="alert alert-error hidden" style="margin-bottom:16px"></div>
+
+      <form id="campaign-form" novalidate style="display:flex;flex-direction:column;gap:18px">
+        <div class="form-group">
+          <label for="title">Campaign title</label>
+          <input type="text" id="title" placeholder="e.g. Summer skincare launch with micro-influencers" required />
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea id="description" placeholder="Describe what you need, deliverables, timeline, and what makes a great fit..." style="min-height:140px" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="budget">Budget (USD)</label>
+          <div class="input-prefix-wrap">
+            <span class="input-prefix">$</span>
+            <input type="number" id="budget" class="prefix-input" placeholder="5000" min="1" step="any" required />
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button type="submit" class="btn" id="submit-btn">Post Campaign</button>
+          <a href="/pages/dashboard.html" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    if (!requireAuth()) { /* redirected */ }
+    const user = getUser();
+    if (user && user.role !== "BRAND") window.location.href = "/pages/dashboard.html";
+
+    document.getElementById("navbar").innerHTML = buildNavbar();
+
+    const form = document.getElementById("campaign-form");
+    const errEl = document.getElementById("error-msg");
+    const btn = document.getElementById("submit-btn");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideError(errEl);
+      const title = document.getElementById("title").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const budget = parseFloat(document.getElementById("budget").value);
+      if (!title || !description) { showError(errEl, "All fields are required"); return; }
+      if (isNaN(budget) || budget <= 0) { showError(errEl, "Budget must be a positive number"); return; }
+      setLoading(btn, true, "Post Campaign");
+      try {
+        await api.createCampaign({ title, description, budget });
+        window.location.href = "/pages/dashboard.html";
+      } catch(err) {
+        showError(errEl, err.message || "Failed to create campaign");
+        setLoading(btn, false, "Post Campaign");
+      }
+    });
+  </script>
+</body>
+</html>
